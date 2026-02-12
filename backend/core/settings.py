@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Third-party apps
+    "corsheaders",
     "health_check",
     "health_check.db",
     "health_check.cache",
@@ -47,10 +48,13 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "django_redis",
+    # Local apps
+    "route_planner",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -95,10 +99,23 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Handle both test and production database configurations
+_db_engine = config("DB_ENGINE", default="django.db.backends.sqlite3")
+_db_name = config("DB_NAME", default=str(BASE_DIR / "db.sqlite3"))
+
+# Ensure DB_NAME is a string, not a Path object, for all database backends
+if hasattr(_db_name, '__fspath__'):  # Check if it's a Path-like object
+    _db_name = str(_db_name)
+
+# For :memory: sqlite databases (used in tests), keep as-is
+# For all other cases, convert to string
+if _db_name != ":memory:":
+    _db_name = str(_db_name)
+
 DATABASES = {
     "default": {
-        "ENGINE": config("DB_ENGINE", default="django.db.backends.sqlite3"),
-        "NAME": config("DB_NAME", default=BASE_DIR / "db.sqlite3"),
+        "ENGINE": _db_engine,
+        "NAME": _db_name,
         "USER": config("DB_USER", default=""),
         "PASSWORD": config("DB_PASSWORD", default=""),
         "HOST": config("DB_HOST", default=""),
@@ -176,6 +193,26 @@ REST_FRAMEWORK = {
 # Redis Configuration
 REDIS_URL = config("REDIS_URL")
 
+# Celery Configuration
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+
+# Mapbox Configuration
+MAPBOX_ACCESS_TOKEN = config("MAPBOX_ACCESS_TOKEN")
+MAPBOX_GEOCODING_URL = config(
+    "MAPBOX_GEOCODING_URL",
+    default="https://api.mapbox.com/geocoding/v5/mapbox.places",
+)
+MAPBOX_DIRECTIONS_URL = config(
+    "MAPBOX_DIRECTIONS_URL",
+    default="https://api.mapbox.com/directions/v5/mapbox/driving",
+)
+
 # Cache Configuration
 CACHES = {
     "default": {
@@ -205,3 +242,10 @@ HEALTH_CHECK_ENABLED = [
     "health_check.contrib.redis",
     # "health_check.contrib.celery",
 ]
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+CORS_ALLOW_CREDENTIALS = True

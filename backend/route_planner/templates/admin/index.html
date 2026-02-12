@@ -1,0 +1,18 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+  {{ block.super }}
+  <div class="module" style="margin-top: 20px;">
+    <table>
+      <caption>Route Planner</caption>
+      <tbody>
+        <tr>
+          <th scope="row">
+            <a href="{% url 'admin:fuelstation-upload-csv' %}">Upload Fuel Stations CSV</a>
+          </th>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

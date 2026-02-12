@@ -22,6 +22,7 @@ from django.urls import include, path, re_path
 from django.conf.urls.static import static
 
 api_v1_patterns = [
+    path("", include("route_planner.urls")),
 ]
 
 urlpatterns = [
