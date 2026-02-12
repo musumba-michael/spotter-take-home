@@ -1,0 +1,131 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    command: npm run dev -- --host
+    ports:
+      - "3001:3001"
+    volumes:
+      # Bind mount for source code (enables hot reloading)
+      - ./frontend:/app
+      # Named volume for node_modules (avoids permission issues)
+      - frontend_node_modules:/app/node_modules
+    environment:
+      - VITE_BASE_BACKEND_URL=${VITE_BASE_BACKEND_URL}
+      - VITE_BASE_BACKEND_WS_URL=${VITE_BASE_BACKEND_WS_URL}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING}
+      - NODE_ENV=${NODE_ENV}
+    depends_on:
+      - backend
+    networks:
+      - app_network
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: backend
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - frontend_build_volume:/app/frontend-build
+    environment:
+      # DJANGO
+      - DJANGO_ENVIRONMENT=${DJANGO_ENVIRONMENT}
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DB_ENGINE=${DB_ENGINE}
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - REDIS_URL=${REDIS_URL}
+
+      # Email configuration
+      - EMAIL_BACKEND=${EMAIL_BACKEND}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_USE_SSL=${EMAIL_USE_SSL}
+      - EMAIL_TIMEOUT=${EMAIL_TIMEOUT}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - SERVER_EMAIL=${SERVER_EMAIL}
+
+      # App URLs
+      - APP_FRONTEND_URL=${APP_FRONTEND_URL}
+
+      # Rate limiting configuration
+      - RATE_LIMITING_ENABLED=${RATE_LIMITING_ENABLED}
+    command: >
+      bash -c "python manage.py collectstatic --noinput &&
+                python manage.py makemigrations &&
+                python manage.py migrate &&
+                python manage.py runserver 0.0.0.0:8001"
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:8001/health-check/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis_db:
+        condition: service_healthy
+    networks:
+      - app_network
+  redis_db:
+    image: redis:7-alpine
+    container_name: redis_db
+    ports:
+      - "6380:6380"
+    command: redis-server --port 6380
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    ports:
+      - "5434:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: postgres -c 'max_connections=100' -c 'shared_buffers=256MB'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  db_data:
+  static_volume:
+  media_volume:
+  frontend_node_modules:
+  frontend_build_volume:
+  redis_data:
