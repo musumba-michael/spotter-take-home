@@ -9,4 +9,4 @@
 
 Link to postman collection https://.postman.co/workspace/My-Workspace~72723324-dde2-4b7f-8a9e-9bf400532f3e/request/10646261-2f2d08b7-fe36-4165-88b7-f173c5ce8f60?action=share&creator=10646261&ctx=documentation
 
-Link to loom video: https://www.loom.com/share/789f412d9d4c45f0bf6ff7cdc580189f
+Link to loom video: https://www.loom.com/share/7d93585d2f134ee58f0016b6d8883d32
